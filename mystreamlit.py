@@ -151,7 +151,7 @@ explainer = shap.TreeExplainer(best_model)
 shap_values = explainer.shap_values(X_final_df)
 
 # Sélectionner un utilisateur spécifique (par exemple, l'Observation 1)
-observation_idx = 0  # Choisir l'indice de l'observation souhaitée (ici, l'utilisateur 1)
+observation_idx = 3  # Choisir l'indice de l'observation souhaitée (ici, l'utilisateur 1)
 
 # Prédiction pour cet utilisateur
 prediction = best_model.predict([X_final.iloc[observation_idx]])
