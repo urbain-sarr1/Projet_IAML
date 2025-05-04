@@ -144,34 +144,40 @@ sorted_importances.plot(kind="bar", ax=ax)
 plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
-# 7. Interprétation avec SHAP (version texte uniquement)
-st.subheader("7. Interprétation avec SHAP")
+# 7. Interprétation avec SHAP
+st.subheader("7. Interprétation avec SHAP (Explication détaillée)")
 explainer = shap.Explainer(best_model, X_final)
 shap_values = explainer(X_final)
 
-# Sélection d'un index client
+# Choix du client à interpréter
 selected_index = st.number_input("Choisir un index client", min_value=0, max_value=len(X_final)-1, step=1)
-pred = best_model.predict([X_final.iloc[selected_index]])
-st.write(f"🔎 Prédiction pour le client {selected_index} : {'❌ Résilie' if pred[0]==1 else '✅ Ne résilie pas'}")
 
-# Récupérer les SHAP values pour ce client
-shap_values_client = shap_values[selected_index].values
+# Prédiction du modèle
+prediction = best_model.predict([X_final.iloc[selected_index]])[0]
+prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
+st.markdown(f"### Prédiction pour l'observation {selected_index} : **{prediction_label}**")
 
-# Associer chaque valeur SHAP à sa feature
+# Valeurs SHAP pour ce client
+shap_values_client = shap_values[selected_index].values.flatten()
+feature_values = X_final.iloc[selected_index]
+
+# Construction du texte explicatif
+st.markdown("### Interprétation de la prédiction avec SHAP")
+st.markdown(f"Pour l'observation {selected_index}, le modèle a prédit que le client **{'résiliera' if prediction == 1 else 'ne résiliera pas'}** (prédiction = {prediction}).")
+st.markdown("Voici l'impact des principales variables sur cette prédiction :")
+
+# Trier les contributions par importance
 contributions = sorted(
-    zip(X_final.columns, shap_values_client.flatten()),
+    zip(X_final.columns, shap_values_client, feature_values),
     key=lambda x: abs(x[1]),
     reverse=True
 )
 
-# Prendre les 3 variables les plus influentes
-top_features = contributions[:3]
-phrases = []
-for feature, value in top_features:
-    direction = "augmente" if value > 0 else "réduit"
-    phrases.append(f"🔹 La variable **{feature}** {direction} la probabilité de résiliation.")
+# Afficher les 3 plus fortes contributions
+for feature, shap_val, feat_val in contributions[:3]:
+    direction = "augmente" if shap_val > 0 else "diminue"
+    st.markdown(f"- **{feature}** = {feat_val:.2f} → valeur SHAP = {shap_val:+.4f} : cette variable **{direction}** la probabilité de résiliation.")
 
-# Affichage final
-st.markdown("### 🧠 Explication du modèle (en langage naturel)")
-for phrase in phrases:
-    st.markdown(phrase)
+# Résumé final
+total_effect = shap_values_client.sum()
+st.markdown(f"<br>ℹ️ La somme des contributions SHAP est de **{total_effect:+.4f}**, ce qui oriente la prédiction vers la classe **{prediction}**.", unsafe_allow_html=True)
