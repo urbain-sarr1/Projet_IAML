@@ -10,6 +10,7 @@ import seaborn as sns
 
 # Charger vos données ici
 df = pd.read_csv("churn_clients.csv")
+df = pd.get_dummies(df)
 
 X = df.drop(columns=['Resilie'])
 y = df['Resilie']
