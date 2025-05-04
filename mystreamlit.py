@@ -10,7 +10,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 import shap
 
 # Titre
-st.title("🔍 Analyse de la résiliation client")
+st.title("🔍 Dashboard Analyse de la résiliation client")
 
 # 1. Chargement des données
 df = pd.read_csv("churn_clients.csv")
@@ -33,8 +33,8 @@ st.write("Données après nettoyage :", df_clean.shape)
 
 # Normalisation
 scaler = StandardScaler()
-X = df_clean.drop("Resiliation", axis=1)
-y = df_clean["Resiliation"]
+X = df_clean.drop("Resilie", axis=1)
+y = df_clean["Resilie"]
 X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
 # 3. Visualisations
