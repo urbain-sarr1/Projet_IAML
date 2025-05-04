@@ -32,20 +32,32 @@ if page == "Aperçu des données":
 elif page == "Nettoyage des données":
     st.title("🧹 Nettoyage des données")
     df_clean = df.copy()
+    
+    # Traitement des variables catégorielles avec LabelEncoder
     for col in df_clean.select_dtypes(include='object').columns:
         df_clean[col] = LabelEncoder().fit_transform(df_clean[col].astype(str))
+
+    # Suppression des valeurs manquantes
     df_clean = df_clean.dropna()
 
+    # Vérification des données nettoyées
     missing_values = df_clean.isnull().sum().sum()
     duplicates = df_clean.duplicated().sum()
 
     st.write("Nombre total de valeurs manquantes :", missing_values)
     st.write("Nombre de doublons :", duplicates)
 
-    scaler = StandardScaler()
+    # Séparation des variables explicatives (X) et cible (y)
     X = df_clean.drop("Resilie", axis=1)
     y = df_clean["Resilie"]
+
+    # Normalisation des données avec StandardScaler
+    scaler = StandardScaler()
     X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+
+    # Sauvegarde des données nettoyées et normalisées dans la session Streamlit
+    st.session_state.X_scaled = X_scaled
+    st.session_state.y = y
 
 # 4. Visualisations Interactives
 elif page == "Visualisations":
@@ -70,15 +82,21 @@ elif page == "Visualisations":
 elif page == "Entraînement du modèle":
     st.title("⚙️ Entraînement du Modèle")
     
-    # Vérification que X_scaled est défini correctement
-    if 'X_scaled' not in locals():
+    # Vérification de l'existence des données normalisées
+    if 'X_scaled' not in st.session_state or 'y' not in st.session_state:
         st.error("Les données n'ont pas été préalablement traitées et normalisées.")
     else:
-        # Séparation des données
+        X_scaled = st.session_state.X_scaled
+        y = st.session_state.y
+
+        # Séparation des données en entraînement et test
         X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
+        # Entraînement du modèle de classification (Decision Tree)
         model = DecisionTreeClassifier()
         model.fit(X_train, y_train)
+        
+        # Prédictions et évaluation du modèle
         y_pred = model.predict(X_test)
 
         st.write("Classification Report :")
@@ -105,11 +123,14 @@ elif page == "Entraînement du modèle":
 elif page == "Explication des prédictions":
     st.title("🔍 Explication des Prédictions")
 
-    # Vérification que X_scaled est défini correctement
-    if 'X_scaled' not in locals():
+    # Vérification des données traitées et normalisées
+    if 'X_scaled' not in st.session_state or 'y' not in st.session_state:
         st.error("Les données n'ont pas été préalablement traitées et normalisées.")
     else:
-        X_final_df = pd.DataFrame(X_scaled, columns=X.columns)
+        X_scaled = st.session_state.X_scaled
+        y = st.session_state.y
+
+        X_final_df = pd.DataFrame(X_scaled, columns=X_scaled.columns)
 
         # Explainer SHAP
         explainer = shap.TreeExplainer(model)
@@ -122,14 +143,14 @@ elif page == "Explication des prédictions":
             step=1
         )
 
-        prediction = model.predict([X_final.iloc[observation_idx]])
+        prediction = model.predict([X_final_df.iloc[observation_idx]])
 
         prediction_label = "❌ Résilie" if prediction[0] == 1 else "✅ Ne résilie pas"
         st.markdown(f"### Pour l'Observation {observation_idx + 1}, le modèle a prédit que le client : **{prediction_label}**")
 
         # Affichage des valeurs SHAP
         st.markdown("#### Impact des variables :")
-        for feature, shap_value in zip(X_final.columns, shap_values[1][observation_idx]):
+        for feature, shap_value in zip(X_final_df.columns, shap_values[1][observation_idx]):
             direction = "augmente" if shap_value > 0 else "diminue"
             st.markdown(
                 f"- **{feature}** : La valeur SHAP est **{shap_value:+.4f}**, ce qui indique que la variable **{feature}** {'augmente' if shap_value > 0 else 'diminue'} la probabilité de résiliation."
@@ -137,7 +158,7 @@ elif page == "Explication des prédictions":
 
         # Graphique SHAP interactif
         shap.initjs()
-        st.pydeck_chart(shap.force_plot(explainer.expected_value[1], shap_values[1][observation_idx], X_final.iloc[observation_idx]))
+        st.pydeck_chart(shap.force_plot(explainer.expected_value[1], shap_values[1][observation_idx], X_final_df.iloc[observation_idx]))
 
 # 7. Personnalisation de l'interface
 st.markdown("""
@@ -156,4 +177,3 @@ st.sidebar.markdown("**🔧 Paramètres du modèle :**")
 # Exemples d'ajout de contrôle des paramètres du modèle
 max_depth = st.sidebar.slider("Profondeur maximale de l'arbre", 1, 20, 3)
 min_samples_leaf = st.sidebar.slider("Nombre minimum d'échantillons par feuille", 1, 20, 10)
-
