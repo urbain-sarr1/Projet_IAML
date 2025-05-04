@@ -156,7 +156,5 @@ pred = model.predict([X_final.iloc[selected_index]])
 st.write(f"Prédiction pour le client {selected_index} : {'Résilie' if pred[0]==1 else 'Ne résilie pas'}")
 
 # Affichage de l'explication SHAP pour un seul client sélectionné
-st.write("Explication SHAP")
-fig = shap.plots.waterfall(shap_values[selected_index])  # Afficher l'explication pour un seul client
-st.pyplot(fig)
+
 
