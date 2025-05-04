@@ -29,7 +29,6 @@ for col in df_clean.select_dtypes(include='object').columns:
 
 # Gestion des valeurs manquantes
 df_clean = df_clean.dropna()
-st.write("Données après nettoyage :", df_clean.shape)
 
 # Comptage des valeurs manquantes et des doublons
 missing_values = df_clean.isnull().sum().sum()
@@ -147,14 +146,14 @@ st.pyplot(fig)
 
 # 7. Explication locale avec SHAP
 st.subheader("7. Interprétation avec SHAP")
-explainer = shap.Explainer(model, X_final)
+explainer = shap.Explainer(best_model, X_final)
 shap_values = explainer(X_final)
 
 # Sélectionner un index de client
 selected_index = st.number_input("Choisir un index client", min_value=0, max_value=len(X_final)-1, step=1)
-pred = model.predict([X_final.iloc[selected_index]])
+pred = best_model.predict([X_final.iloc[selected_index]])
 st.write(f"Prédiction pour le client {selected_index} : {'Résilie' if pred[0]==1 else 'Ne résilie pas'}")
 
 # Affichage de l'explication SHAP pour un seul client sélectionné
-
-
+fig = shap.plots.waterfall(shap_values[selected_index], show=False)
+st.pyplot(fig)
