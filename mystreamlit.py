@@ -144,7 +144,7 @@ sorted_importances.plot(kind="bar", ax=ax)
 plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
-# 7. Explication locale avec SHAP (version texte uniquement)
+# 7. Interprétation avec SHAP (version texte uniquement)
 st.subheader("7. Interprétation avec SHAP")
 explainer = shap.Explainer(best_model, X_final)
 shap_values = explainer(X_final)
@@ -154,18 +154,24 @@ selected_index = st.number_input("Choisir un index client", min_value=0, max_val
 pred = best_model.predict([X_final.iloc[selected_index]])
 st.write(f"🔎 Prédiction pour le client {selected_index} : {'❌ Résilie' if pred[0]==1 else '✅ Ne résilie pas'}")
 
-# Extraire les valeurs SHAP et les caractéristiques
-client_shap = shap_values[selected_index]
-contributions = sorted(zip(X_final.columns, client_shap.values), key=lambda x: abs(x[1]), reverse=True)
+# Récupérer les SHAP values pour ce client
+shap_values_client = shap_values[selected_index].values
 
-# Sélection des 3 variables les plus influentes
+# Associer chaque valeur SHAP à sa feature
+contributions = sorted(
+    zip(X_final.columns, shap_values_client.flatten()),
+    key=lambda x: abs(x[1]),
+    reverse=True
+)
+
+# Prendre les 3 variables les plus influentes
 top_features = contributions[:3]
 phrases = []
 for feature, value in top_features:
     direction = "augmente" if value > 0 else "réduit"
     phrases.append(f"🔹 La variable **{feature}** {direction} la probabilité de résiliation.")
 
-# Affichage du résumé
+# Affichage final
 st.markdown("### 🧠 Explication du modèle (en langage naturel)")
 for phrase in phrases:
     st.markdown(phrase)
