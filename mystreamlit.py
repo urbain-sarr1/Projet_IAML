@@ -26,10 +26,10 @@ df = load_data()
 st.subheader("1. Aperçu des données")
 st.write(f"Nombre total de clients : {df.shape[0]}")
 st.write(f"Colonnes disponibles : {list(df.columns)}")
+num_lines = st.slider("Choisissez le nombre de lignes à afficher", min_value=5, max_value=df.shape[0], step=5, value=10)
 
 # Affichage dynamique de l'aperçu des données
-num_rows = st.slider("Sélectionnez le nombre de lignes à afficher", 5, 50, 10)
-st.dataframe(df.head(num_rows))
+st.dataframe(df.head(num_lines))
 
 # 3. Sélection des caractéristiques
 st.subheader("2. Sélectionnez les caractéristiques à analyser")
