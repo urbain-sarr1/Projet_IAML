@@ -10,7 +10,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 import shap
 
 # Titre
-st.title("🔍  Analyse de la résiliation client")
+st.title("🔍 Dashboard Analyse de la résiliation client")
 
 # 1. Chargement des données
 df = pd.read_csv("churn_clients.csv")
@@ -144,16 +144,28 @@ sorted_importances.plot(kind="bar", ax=ax)
 plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
-# 7. Explication locale avec SHAP
+# 7. Explication locale avec SHAP (version texte uniquement)
 st.subheader("7. Interprétation avec SHAP")
 explainer = shap.Explainer(best_model, X_final)
 shap_values = explainer(X_final)
 
-# Sélectionner un index de client
+# Sélection d'un index client
 selected_index = st.number_input("Choisir un index client", min_value=0, max_value=len(X_final)-1, step=1)
 pred = best_model.predict([X_final.iloc[selected_index]])
-st.write(f"Prédiction pour le client {selected_index} : {'Résilie' if pred[0]==1 else 'Ne résilie pas'}")
+st.write(f"🔎 Prédiction pour le client {selected_index} : {'❌ Résilie' if pred[0]==1 else '✅ Ne résilie pas'}")
 
-# Affichage de l'explication SHAP pour un seul client sélectionné
-fig = shap.plots.waterfall(shap_values[selected_index], show=False)
-st.pyplot(fig)
+# Extraire les valeurs SHAP et les caractéristiques
+client_shap = shap_values[selected_index]
+contributions = sorted(zip(X_final.columns, client_shap.values), key=lambda x: abs(x[1]), reverse=True)
+
+# Sélection des 3 variables les plus influentes
+top_features = contributions[:3]
+phrases = []
+for feature, value in top_features:
+    direction = "augmente" if value > 0 else "réduit"
+    phrases.append(f"🔹 La variable **{feature}** {direction} la probabilité de résiliation.")
+
+# Affichage du résumé
+st.markdown("### 🧠 Explication du modèle (en langage naturel)")
+for phrase in phrases:
+    st.markdown(phrase)
