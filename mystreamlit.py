@@ -76,7 +76,7 @@ sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues",
 st.pyplot(fig)
 
 # Validation croisée
-st.subheader("📊 Validation croisée")
+st.subheader("📊 Evalution du modèle")
 scoring = {'accuracy': 'accuracy', 'recall': 'recall', 'f1': 'f1', 'roc_auc': 'roc_auc'}
 cv_results = cross_validate(model, X_scaled, y, cv=cv, scoring=scoring)
 
@@ -138,27 +138,43 @@ plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
 # 7. SHAP
-st.subheader("7. Interprétation avec SHAP")
+st.subheader("7. Interprétation de la Prédiction avec SHAP")
 explainer = shap.TreeExplainer(best_model)
 shap_values = explainer.shap_values(X_final)
 
+# Sélection de l'observation pour laquelle on souhaite expliquer la prédiction
 selected_index = st.number_input("Choisir un index client", min_value=0, max_value=len(X_final)-1, step=1)
+
+# Prédiction pour l'observation sélectionnée
 prediction = best_model.predict([X_final.iloc[selected_index]])[0]
 prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
-st.markdown(f"### Prédiction : **{prediction_label}**")
+st.markdown(f"### Prédiction pour l'Observation {selected_index}: **{prediction_label}**")
 
-shap_values_client = shap_values[1][selected_index]  # pour classe 1
+# Calcul des valeurs SHAP pour l'observation sélectionnée
+shap_values_client = shap_values[1][selected_index]  # pour classe 1 (résiliation)
 feature_values = X_final.iloc[selected_index]
 
+# Tri des variables par importance
 contributions = sorted(
     zip(X_final.columns, shap_values_client, feature_values),
     key=lambda x: abs(x[1]),
     reverse=True
 )
 
-st.markdown("### Top 3 variables influentes :")
+# Explication des variables influentes
+st.markdown(f"#### Impact des variables sur la prédiction de l'Observation {selected_index} :")
+
+# Affichage des 3 principales variables influentes
 for feature, shap_val, feat_val in contributions[:3]:
     direction = "augmente" if shap_val > 0 else "diminue"
-    st.markdown(f"- **{feature}** = {feat_val:.2f} → SHAP = {shap_val:+.4f} → **{direction}** proba de résiliation")
-
-st.markdown(f"ℹ️ Contribution totale SHAP : **{shap_values_client.sum():+.4f}** vers la classe {prediction}")
+    st.markdown(f"- **{feature}** : La valeur SHAP pour '{feature}' est {shap_val:+.4f}, ce qui indique que {feature} {direction} la probabilité de résiliation.")
+    
+# Conclusion de l'impact des variables
+st.markdown(f"### Combinaison des impacts :")
+shap_sum = shap_values_client.sum()
+if shap_sum > 0:
+    direction = "augmente"
+    st.markdown(f"L'impact total des variables est de **{shap_sum:+.4f}**, ce qui augmente la probabilité de résiliation.")
+else:
+    direction = "diminue"
+    st.markdown(f"L'impact total des variables est de **{shap_sum:+.4f}**, ce qui diminue la probabilité de résiliation.")
