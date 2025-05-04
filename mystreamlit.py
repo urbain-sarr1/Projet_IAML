@@ -161,20 +161,19 @@ st.dataframe(df.iloc[[selected_index]])
 prediction = best_model.predict([X_final.iloc[selected_index]])[0]
 prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
 
-# Récupération des valeurs SHAP
-if isinstance(shap_values, list):
-    shap_values_client = shap_values[1][selected_index]  # classe "résilie"
+# Récupération des SHAP values pour l'observation
+if isinstance(shap_values, list) and len(shap_values) == 2:
+    shap_values_client = shap_values[1][selected_index]
     expected_value = explainer.expected_value[1]
 else:
     shap_values_client = shap_values[selected_index]
     expected_value = explainer.expected_value
 
-# Associer chaque feature à sa valeur SHAP
+# Associer chaque feature à sa valeur SHAP et valeur réelle
 feature_contributions = list(zip(X_final.columns, shap_values_client, X_final.iloc[selected_index]))
-# Trier par importance absolue
 top_features = sorted(feature_contributions, key=lambda x: abs(x[1]), reverse=True)[:2]
 
-# Affichage des résultats
+# Affichage
 st.markdown(f"### Pour l'observation {selected_index}, le modèle a prédit que le client : **{prediction_label}**")
 st.markdown("#### Impact des 2 variables les plus influentes :")
 
@@ -185,7 +184,7 @@ for feature, shap_val, val in top_features:
     )
 
 # Résumé global
-shap_sum = sum([val for _, val, _ in feature_contributions])
+shap_sum = shap_values_client.sum()
 final_value = expected_value + shap_sum
 
 st.markdown("#### Conclusion :")
