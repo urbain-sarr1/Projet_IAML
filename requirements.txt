@@ -1,7 +1,8 @@
+streamlit
 pandas
-numpy
-matplotlib
-seaborn
+plotly
 scikit-learn
-imblearn
 shap
+matplotlib
+joblib
+
