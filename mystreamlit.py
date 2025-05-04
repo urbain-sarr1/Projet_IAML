@@ -155,20 +155,25 @@ selected_index = st.number_input(
 
 # ✅ Affichage brut de la ligne sélectionnée dans le DataFrame original (non transformé)
 st.markdown(f"#### Données brutes de l'observation {selected_index}")
-st.dataframe(df.iloc[[selected_index]])  # Affichage sans transformation
+st.dataframe(df.iloc[[selected_index]])
 
 # Prédiction pour ce client
 prediction = best_model.predict([X_final.iloc[selected_index]])[0]
 prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
 
-# Récupération des valeurs SHAP
-shap_values_client = shap_values[1][selected_index]
+# Gérer les shap_values selon leur forme (classification ou régression)
+if isinstance(shap_values, list):
+    shap_values_client = shap_values[prediction][selected_index]  # Si classification binaire
+    expected_value = explainer.expected_value[prediction]
+else:
+    shap_values_client = shap_values[selected_index]  # Cas régression ou simplifié
+    expected_value = explainer.expected_value
 
-# Valeurs SHAP spécifiques
+# Extraire les SHAP values pour les deux variables demandées
 shap_anciennete = shap_values_client[X_final.columns.get_loc("Anciennete")]
 shap_frequence = shap_values_client[X_final.columns.get_loc("Frequence_utilisation")]
 
-# Résumé de la prédiction et des impacts SHAP
+# Affichage interprétatif
 st.markdown(f"### Pour l'observation {selected_index}, le modèle a prédit que le client : **{prediction_label}**")
 st.markdown("#### Impact des variables :")
 st.markdown(f"- **Ancienneté** : La valeur SHAP est **{shap_anciennete:+.4f}**, ce qui indique que l'ancienneté du client **diminue** la probabilité de résiliation." if shap_anciennete < 0 else f"- **Ancienneté** : La valeur SHAP est **{shap_anciennete:+.4f}**, ce qui **augmente** la probabilité de résiliation.")
@@ -176,9 +181,7 @@ st.markdown(f"- **Fréquence d'utilisation** : La valeur SHAP est **{shap_freque
 
 # Résumé global
 shap_sum = shap_values_client.sum()
-expected_value = explainer.expected_value[1]
 final_value = expected_value + shap_sum
 
 st.markdown("#### Conclusion :")
-st.markdown(f"La combinaison de ces impacts (et des autres variables) donne une prédiction finale avec une sortie modèle de **{final_value:.4f}**.")
-
+st.markdown(f"La combinaison de ces impacts (et des autres variables) donne une sortie modèle de **{final_value:.4f}**.")
