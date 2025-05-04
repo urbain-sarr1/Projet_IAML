@@ -6,4 +6,4 @@ seaborn
 scikit-learn
 shap
 plotly
-
+IPython
