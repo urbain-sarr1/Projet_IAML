@@ -31,6 +31,14 @@ for col in df_clean.select_dtypes(include='object').columns:
 df_clean = df_clean.dropna()
 st.write("Données après nettoyage :", df_clean.shape)
 
+# Comptage des valeurs manquantes et des doublons
+missing_values = df_clean.isnull().sum().sum()
+duplicates = df_clean.duplicated().sum()
+
+# Affichage des résultats
+st.write(f"Nombre total de valeurs manquantes : {missing_values}")
+st.write(f"Nombre de doublons : {duplicates}")
+
 # Normalisation
 scaler = StandardScaler()
 X = df_clean.drop("Resilie", axis=1)
