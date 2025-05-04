@@ -9,131 +9,124 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import shap
 
-st.title("🔍 Dashboard Analyse de la résiliation client")
+# Configuration du titre du dashboard
+st.set_page_config(page_title="Analyse de la Résiliation Client", page_icon="🔍", layout="wide")
 
-# Chargement des données
-df = pd.read_csv("churn_clients.csv")
+# Titre
+st.title("🔍 Dashboard Interactif - Analyse de la Résiliation Client")
 
-# 1. Aperçu des données
-if st.sidebar.button("1. Aperçu des données"):
-    st.subheader("1. Aperçu des données")
-    st.write("Nombre de clients :", df.shape[0])
-    st.write("Colonnes :", list(df.columns))
-    st.dataframe(df.head())
+# 1. Chargement des données
+@st.cache
+def load_data():
+    return pd.read_csv("churn_clients.csv")
 
-# 2. Nettoyage des données
-if st.sidebar.button("2. Nettoyage des données"):
-    st.subheader("2. Nettoyage des données")
-    df_clean = df.copy()
+df = load_data()
 
-    for col in df_clean.select_dtypes(include='object').columns:
-        df_clean[col] = LabelEncoder().fit_transform(df_clean[col].astype(str))
+# 2. Aperçu des données
+st.subheader("1. Aperçu des données")
+st.write(f"Nombre total de clients : {df.shape[0]}")
+st.write(f"Colonnes disponibles : {list(df.columns)}")
 
-    df_clean = df_clean.dropna()
+# Affichage dynamique de l'aperçu des données
+num_rows = st.slider("Sélectionnez le nombre de lignes à afficher", 5, 50, 10)
+st.dataframe(df.head(num_rows))
 
-    missing_values = df_clean.isnull().sum().sum()
-    duplicates = df_clean.duplicated().sum()
+# 3. Sélection des caractéristiques
+st.subheader("2. Sélectionnez les caractéristiques à analyser")
 
-    st.write("Nombre total de valeurs manquantes :", missing_values)
-    st.write("Nombre de doublons :", duplicates)
+# Choix des variables à afficher dans la visualisation
+col1, col2 = st.columns(2)
+with col1:
+    selected_feature = st.selectbox("Sélectionner une caractéristique pour la visualisation", df.columns.tolist())
 
-    scaler = StandardScaler()
-    X = df_clean.drop("Resilie", axis=1)
-    y = df_clean["Resilie"]
-    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+# Visualisation des caractéristiques sélectionnées
+st.write(f"**Histogramme de {selected_feature}**")
+fig, ax = plt.subplots()
+sns.histplot(df[selected_feature].dropna(), kde=True, ax=ax)
+st.pyplot(fig)
 
-# 3. Visualisations
-if st.sidebar.button("3. Visualisation des données"):
-    st.subheader("3. Visualisation des données")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("Histogramme des âges")
-        fig, ax = plt.subplots()
-        sns.histplot(df["Age"].dropna(), bins=20, kde=True, ax=ax)
-        st.pyplot(fig)
+# 4. Nettoyage et préparation des données
+st.subheader("3. Nettoyage et préparation des données")
 
-    with col2:
-        st.write("Histogramme des revenus")
-        fig, ax = plt.subplots()
-        sns.histplot(df["Revenu"].dropna(), bins=20, kde=True, ax=ax)
-        st.pyplot(fig)
+df_clean = df.copy()
 
-    st.write("Corrélation entre satisfaction et résiliation")
-    fig, ax = plt.subplots()
-    sns.boxplot(x="Resilie", y="Score_satisfaction", data=df.dropna(subset=["Score_satisfaction"]), ax=ax)
-    st.pyplot(fig)
+# Encodage des variables catégorielles
+for col in df_clean.select_dtypes(include='object').columns:
+    df_clean[col] = LabelEncoder().fit_transform(df_clean[col].astype(str))
 
-# 4. Comparaison des modèles
-if st.sidebar.button("4. Comparaison des modèles IA"):
-    st.subheader("4. Comparaison des modèles IA")
+# Suppression des valeurs manquantes
+df_clean = df_clean.dropna()
 
-    # Split des données
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
+# Mise à l'échelle des données
+scaler = StandardScaler()
+X = df_clean.drop("Resilie", axis=1)
+y = df_clean["Resilie"]
+X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
-    # Modèle de base
-    model_base = DecisionTreeClassifier(random_state=42)
-    model_base.fit(X_train, y_train)
-    y_pred_base = model_base.predict(X_test)
+# 5. Sélection d'un modèle pour prédiction
+st.subheader("4. Modélisation et Prédiction")
 
-    st.write("### 4.1 Résultats du modèle de base")
-    st.write("Classification Report :")
-    st.text(classification_report(y_test, y_pred_base))
+# Sélection de l'algorithme de prédiction
+model_option = st.selectbox("Choisissez le modèle à utiliser", ["Arbre de Décision", "Régression Logistique", "Forêt Aléatoire"])
 
-    st.write("Matrice de confusion du modèle de base")
-    fig, ax = plt.subplots()
-    sns.heatmap(confusion_matrix(y_test, y_pred_base), annot=True, fmt="d", cmap="Blues", ax=ax)
-    st.pyplot(fig)
+if model_option == "Arbre de Décision":
+    model = DecisionTreeClassifier(random_state=42)
+elif model_option == "Régression Logistique":
+    from sklearn.linear_model import LogisticRegression
+    model = LogisticRegression(random_state=42)
+else:
+    from sklearn.ensemble import RandomForestClassifier
+    model = RandomForestClassifier(random_state=42)
 
-    # Modèle amélioré
-    model_improved = DecisionTreeClassifier(max_depth=3, min_samples_leaf=10, random_state=42)
-    model_improved.fit(X_train, y_train)
-    y_pred_improved = model_improved.predict(X_test)
+# Séparation des données et entraînement
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
 
-    st.write("### 4.2 Résultats du modèle amélioré")
-    st.write("Classification Report :")
-    st.text(classification_report(y_test, y_pred_improved))
+# Affichage des résultats de prédiction
+st.write("**Rapport de Classification**")
+st.text(classification_report(y_test, y_pred))
 
-    st.write("Matrice de confusion du modèle amélioré")
-    fig, ax = plt.subplots()
-    sns.heatmap(confusion_matrix(y_test, y_pred_improved), annot=True, fmt="d", cmap="Blues", ax=ax)
-    st.pyplot(fig)
+# 6. Visualisation de la matrice de confusion
+st.subheader("5. Matrice de confusion")
+fig, ax = plt.subplots()
+sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues", ax=ax)
+st.pyplot(fig)
 
-    # Evaluation croisée pour comparer les deux modèles
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    
-    scoring = {'accuracy': 'accuracy', 'recall': 'recall', 'f1': 'f1', 'roc_auc': 'roc_auc'}
+# 7. Explication avec SHAP
+st.subheader("6. Explication des Prédictions avec SHAP")
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_scaled)
 
-    cv_results_base = cross_validate(model_base, X_scaled, y, cv=cv, scoring=scoring)
-    cv_results_improved = cross_validate(model_improved, X_scaled, y, cv=cv, scoring=scoring)
+# Choisir un client pour expliquer la prédiction
+index = st.slider("Choisissez un client à analyser", 0, len(X_scaled) - 1, 0)
+shap.initjs()
 
-    st.write("### 4.3 Scores Validation croisée")
+# Affichage de l'importance des variables pour ce client
+st.write(f"Prédiction pour le client {index}: {'Résilie' if y_pred[index] == 1 else 'Ne résilie pas'}")
+shap.force_plot(explainer.expected_value[1], shap_values[1][index], X_scaled.iloc[index])
 
-    # Scores validation croisée du modèle de base
-    score_df_base = pd.DataFrame({
-        'Accuracy': [cv_results_base['test_accuracy'].mean()],
-        'Recall': [cv_results_base['test_recall'].mean()],
-        'F1 Score': [cv_results_base['test_f1'].mean()],
-        'AUC': [cv_results_base['test_roc_auc'].mean()]
-    })
+# 8. Visualisation de l'importance des variables
+st.subheader("7. Importance des Variables")
+importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
+fig, ax = plt.subplots(figsize=(10, 6))
+importances.plot(kind="bar", ax=ax)
+plt.title("Importance des Variables")
+st.pyplot(fig)
 
-    st.write("Modèle de base - Scores Validation croisée :")
-    st.dataframe(score_df_base.T.rename(columns={0: "Score moyen"}).style.format("{:.4f}"))
+# 9. Visualisation interactive
+st.subheader("8. Visualisation Interactive avec des Graphiques Dynamiques")
 
-    # Scores validation croisée du modèle amélioré
-    score_df_improved = pd.DataFrame({
-        'Accuracy': [cv_results_improved['test_accuracy'].mean()],
-        'Recall': [cv_results_improved['test_recall'].mean()],
-        'F1 Score': [cv_results_improved['test_f1'].mean()],
-        'AUC': [cv_results_improved['test_roc_auc'].mean()]
-    })
+# Sélection dynamique des variables
+var1 = st.selectbox("Sélectionnez une variable pour analyser la relation avec la résiliation", df.columns)
+var2 = st.selectbox("Sélectionnez une autre variable pour analyser la relation", df.columns)
 
-    st.write("Modèle amélioré - Scores Validation croisée :")
-    st.dataframe(score_df_improved.T.rename(columns={0: "Score moyen"}).style.format("{:.4f}"))
+# Visualisation interactive de la relation entre deux variables
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.scatterplot(x=df[var1], y=df[var2], hue=df["Resilie"], ax=ax, palette="coolwarm")
+st.pyplot(fig)
 
-    # Importance des variables - Modèle amélioré
-    st.write("### 4.4 Importance des variables du modèle amélioré")
-    importances = pd.Series(model_improved.feature_importances_, index=X.columns).sort_values(ascending=False)
-    fig, ax = plt.subplots(figsize=(8, 5))
-    importances.plot(kind="bar", ax=ax)
-    plt.title("Importance des variables (modèle amélioré)")
-    st.pyplot(fig)
+# Conclusion
+st.subheader("9. Conclusion")
+st.write("Ce tableau de bord permet une analyse approfondie de la résiliation client. Vous pouvez interagir avec les données pour mieux comprendre les facteurs influençant la décision de résiliation.")
+
