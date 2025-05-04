@@ -29,7 +29,7 @@ for col in df_clean.select_dtypes(include='object').columns:
 
 # Gestion des valeurs manquantes
 df_clean = df_clean.dropna()
-st.write("Données après nettoyage :", df_clean.shape)
+#st.write("Données après nettoyage :", df_clean.shape)
 
 # Comptage des valeurs manquantes et des doublons
 missing_values = df_clean.isnull().sum().sum()
