@@ -3,71 +3,72 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
 from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import shap
 
-# Titre du tableau de bord
+# Titre principal
 st.title("🔍 Dashboard Analyse de la Résiliation Client")
 
-# 1. Chargement des données
+# 1. Barre de navigation
+page = st.sidebar.radio("Sélectionner la page", 
+                        ("Aperçu des données", "Nettoyage des données", "Visualisations", 
+                         "Entraînement du modèle", "Explication des prédictions"))
+
+# Chargement des données
 df = pd.read_csv("churn_clients.csv")
-st.subheader("1. Aperçu des données")
-st.write("Nombre de clients :", df.shape[0])
-st.write("Colonnes :", list(df.columns))
-st.dataframe(df.head())
 
-# 2. Nettoyage des données
-st.subheader("2. Nettoyage des données")
-df_clean = df.copy()
+# 2. Aperçu des données
+if page == "Aperçu des données":
+    st.title("🔍 Aperçu des Données")
+    st.write("Nombre de clients :", df.shape[0])
+    st.write("Colonnes :", list(df.columns))
+    st.dataframe(df.head())
 
-# Encodage des variables catégorielles et nettoyage
-for col in df_clean.select_dtypes(include='object').columns:
-    df_clean[col] = LabelEncoder().fit_transform(df_clean[col].astype(str))
+# 3. Nettoyage des données
+elif page == "Nettoyage des données":
+    st.title("🧹 Nettoyage des données")
+    df_clean = df.copy()
+    for col in df_clean.select_dtypes(include='object').columns:
+        df_clean[col] = LabelEncoder().fit_transform(df_clean[col].astype(str))
+    df_clean = df_clean.dropna()
 
-df_clean = df_clean.dropna()
+    missing_values = df_clean.isnull().sum().sum()
+    duplicates = df_clean.duplicated().sum()
 
-missing_values = df_clean.isnull().sum().sum()
-duplicates = df_clean.duplicated().sum()
+    st.write("Nombre total de valeurs manquantes :", missing_values)
+    st.write("Nombre de doublons :", duplicates)
 
-st.write("Nombre total de valeurs manquantes :", missing_values)
-st.write("Nombre de doublons :", duplicates)
+    scaler = StandardScaler()
+    X = df_clean.drop("Resilie", axis=1)
+    y = df_clean["Resilie"]
+    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
-# Standardisation des variables
-scaler = StandardScaler()
-X = df_clean.drop("Resilie", axis=1)
-y = df_clean["Resilie"]
-X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+# 4. Visualisations Interactives
+elif page == "Visualisations":
+    st.title("📊 Visualisation des Données")
 
-# 3. Visualisations avec un bouton pour les afficher
-st.subheader("3. Visualisations des données")
+    graph_type = st.radio("Sélectionner un graphique", 
+                          ("Histogramme des âges", "Histogramme des revenus", "Corrélation Satisfaction-Resiliation"))
 
-# Boutons pour afficher les graphiques
-if st.button("Afficher Histogrammes"):
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("Histogramme des âges")
-        fig, ax = plt.subplots()
-        sns.histplot(df["Age"].dropna(), bins=20, kde=True, ax=ax)
-        st.pyplot(fig)
+    if graph_type == "Histogramme des âges":
+        fig = px.histogram(df, x="Age", nbins=20, title="Distribution des âges des clients")
+        st.plotly_chart(fig)
 
-    with col2:
-        st.write("Histogramme des revenus")
-        fig, ax = plt.subplots()
-        sns.histplot(df["Revenu"].dropna(), bins=20, kde=True, ax=ax)
-        st.pyplot(fig)
+    elif graph_type == "Histogramme des revenus":
+        fig = px.histogram(df, x="Revenu", nbins=20, title="Distribution des revenus des clients")
+        st.plotly_chart(fig)
 
-if st.button("Afficher Corrélation"):
-    st.write("Corrélation entre satisfaction et résiliation")
-    fig, ax = plt.subplots()
-    sns.boxplot(x="Resilie", y="Score_satisfaction", data=df.dropna(subset=["Score_satisfaction"]), ax=ax)
-    st.pyplot(fig)
+    elif graph_type == "Corrélation Satisfaction-Resiliation":
+        fig = px.box(df, x="Resilie", y="Score_satisfaction", title="Satisfaction des clients vs Résiliation")
+        st.plotly_chart(fig)
 
-# 4. Entraînement du modèle avec un bouton pour afficher les résultats
-st.subheader("4. Entraînement du modèle")
-if st.button("Entraîner le modèle et afficher les résultats"):
+# 5. Entraînement du Modèle
+elif page == "Entraînement du modèle":
+    st.title("⚙️ Entraînement du Modèle")
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
@@ -84,7 +85,6 @@ if st.button("Entraîner le modèle et afficher les résultats"):
     st.pyplot(fig)
 
     # Validation croisée
-    st.subheader("📊 Évaluation du modèle")
     scoring = {'accuracy': 'accuracy', 'recall': 'recall', 'f1': 'f1', 'roc_auc': 'roc_auc'}
     cv_results = cross_validate(model, X_scaled, y, cv=cv, scoring=scoring)
 
@@ -96,45 +96,53 @@ if st.button("Entraîner le modèle et afficher les résultats"):
     })
     st.dataframe(score_df.T.rename(columns={0: "Score moyen"}).style.format("{:.4f}"))
 
-# 5. Visualisation de l'importance des variables
-if st.button("Afficher Importance des Variables"):
-    st.subheader("5. Importance des variables")
-    importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
-    fig, ax = plt.subplots(figsize=(8, 5))
-    importances.plot(kind="bar", ax=ax)
-    plt.title("Importance des variables")
-    st.pyplot(fig)
-
-# 6. Explication des prédictions avec SHAP
-if st.button("Afficher Explication des Prédictions SHAP"):
-    st.subheader("6. Explication des prédictions")
+# 6. Explication des Prédictions avec SHAP
+elif page == "Explication des prédictions":
+    st.title("🔍 Explication des Prédictions")
     X_final_df = pd.DataFrame(X_scaled, columns=X.columns)
+
+    # Explainer SHAP
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_final_df)
 
-    # Sélection de l'observation à analyser
-    observation_idx = st.number_input("Choisissez un index client à analyser", min_value=0, max_value=len(X_final_df) - 1, step=1)
+    observation_idx = st.number_input(
+        "Choisissez un index client à analyser", 
+        min_value=0, 
+        max_value=len(X_final_df) - 1, 
+        step=1
+    )
 
-    # Prédiction pour cet utilisateur
-    prediction = model.predict([X_scaled.iloc[observation_idx]])
+    prediction = model.predict([X_final.iloc[observation_idx]])
 
-    # Affichage de la prédiction
     prediction_label = "❌ Résilie" if prediction[0] == 1 else "✅ Ne résilie pas"
     st.markdown(f"### Pour l'Observation {observation_idx + 1}, le modèle a prédit que le client : **{prediction_label}**")
 
-    # Affichage des valeurs SHAP pour chaque feature
+    # Affichage des valeurs SHAP
     st.markdown("#### Impact des variables :")
-    for feature, shap_value in zip(X_final_df.columns, shap_values[1][observation_idx]):
+    for feature, shap_value in zip(X_final.columns, shap_values[1][observation_idx]):
         direction = "augmente" if shap_value > 0 else "diminue"
         st.markdown(
             f"- **{feature}** : La valeur SHAP est **{shap_value:+.4f}**, ce qui indique que la variable **{feature}** {'augmente' if shap_value > 0 else 'diminue'} la probabilité de résiliation."
         )
 
-    # Calcul de l'impact total
-    expected_value = explainer.expected_value[1]
-    impact_total = expected_value + shap_values[1][observation_idx].sum()
+    # Graphique SHAP interactif
+    shap.initjs()
+    st.pydeck_chart(shap.force_plot(explainer.expected_value[1], shap_values[1][observation_idx], X_final.iloc[observation_idx]))
 
-    # Résumé global
-    st.markdown("#### Conclusion :")
-    st.markdown(f"La combinaison de ces impacts donne une sortie modèle de **{impact_total:.4f}**.")
+# 7. Personnalisation de l'interface
+st.markdown("""
+    <style>
+        .stApp {
+            background-color: #f4f4f9;
+        }
+        .css-1v3fvcr {
+            background-color: #3b8d99;
+            color: white;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
+st.sidebar.markdown("**🔧 Paramètres du modèle :**")
+# Exemples d'ajout de contrôle des paramètres du modèle
+max_depth = st.sidebar.slider("Profondeur maximale de l'arbre", 1, 20, 3)
+min_samples_leaf = st.sidebar.slider("Nombre minimum d'échantillons par feuille", 1, 20, 10)
