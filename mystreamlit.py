@@ -13,7 +13,7 @@ import joblib
 @st.cache_data
 def load_and_preprocess_data():
     # Remplace le chemin par le fichier CSV contenant tes données
-    data = pd.read_csv("data_clients.csv")  # Assure-toi que le fichier est dans le bon répertoire
+    data = pd.read_csv("churn_clients.csv")  # Assure-toi que le fichier est dans le bon répertoire
     return data
 
 data = load_and_preprocess_data()
