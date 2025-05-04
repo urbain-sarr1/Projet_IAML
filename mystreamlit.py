@@ -54,7 +54,7 @@ with col2:
 
 st.write("Corrélation entre satisfaction et résiliation")
 fig, ax = plt.subplots()
-sns.boxplot(x="Resiliation", y="Score_satisfaction", data=df)
+sns.boxplot(x="Resilie", y="Score_satisfaction", data=df)
 st.pyplot(fig)
 
 # 4. Modélisation
