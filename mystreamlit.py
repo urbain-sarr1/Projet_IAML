@@ -64,21 +64,28 @@ fig, ax = plt.subplots()
 sns.boxplot(x="Resilie", y="Score_satisfaction", data=df)
 st.pyplot(fig)
 
-# 4. Modélisation
+# 4. Modélisation (éviter le surapprentissage)
 st.subheader("4. Entraînement du modèle")
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-# Arbre de décision avec hyperparamètres
+from sklearn.model_selection import StratifiedKFold
+
+# Split avec stratification
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
+
+# Arbre de décision avec complexité limitée
 params = {
-    'max_depth': [3, 5, 10],
-    'min_samples_split': [2, 5, 10],
-    'criterion': ['gini', 'entropy']
+    'max_depth': [3, 4, 5],
+    'min_samples_leaf': [5, 10],
+    'criterion': ['gini']
 }
-grid = GridSearchCV(DecisionTreeClassifier(random_state=42), params, cv=5, scoring='f1')
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+grid = GridSearchCV(DecisionTreeClassifier(random_state=42), params, cv=cv, scoring='f1')
 grid.fit(X_train, y_train)
+
 model = grid.best_estimator_
 
-# Prédiction et évaluation
+# Prédiction
 y_pred = model.predict(X_test)
 st.write("Classification Report :")
 st.text(classification_report(y_test, y_pred))
@@ -87,6 +94,23 @@ st.write("Matrice de confusion")
 fig, ax = plt.subplots()
 sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues")
 st.pyplot(fig)
+
+# Validation croisée (contrôle du surapprentissage)
+cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='f1')
+st.write(f"📊 Score F1 moyen (validation croisée) : {cv_scores.mean():.4f}")
+st.write("🔧 Meilleurs hyperparamètres :")
+st.json(grid.best_params_)
+
+# Importance des variables
+st.subheader("5. Importance des variables")
+importances = pd.Series(model.feature_importances_, index=X.columns)
+top_features = importances.sort_values(ascending=False)
+
+fig, ax = plt.subplots(figsize=(8, 5))
+top_features.plot(kind="bar", ax=ax)
+plt.title("Importance des variables")
+st.pyplot(fig)
+
 
 # 5. Importance des variables
 st.subheader("5. Importance des variables")
