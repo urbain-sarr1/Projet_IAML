@@ -138,54 +138,40 @@ plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
 
-# 7. Interprétation de la Prédiction avec SHAP
-st.subheader("7. Interprétation de la Prédiction avec SHAP")
+import shap
+import pandas as pd
+
+# Créer un DataFrame avec les données mises à l'échelle et les variables utiles
+X_final_df = pd.DataFrame(X_final, columns=X_final.columns)
 
 # Créer un explainer SHAP pour le modèle
 explainer = shap.TreeExplainer(best_model)
-shap_values = explainer.shap_values(X_final)
 
-# Sélection du client à analyser
-selected_index = st.number_input(
-    "Choisissez un index client à analyser", 
-    min_value=0, 
-    max_value=len(X_final) - 1, 
-    step=1
-)
+# Obtenir les valeurs SHAP
+shap_values = explainer.shap_values(X_final_df)
 
-# ✅ Affichage brut de la ligne sélectionnée dans le DataFrame original (non transformé)
-st.markdown(f"#### Données brutes de l'observation {selected_index}")
-st.dataframe(df.iloc[[selected_index]])
+# Sélectionner un utilisateur spécifique (par exemple, l'Observation 1)
+observation_idx = 0  # Choisir l'indice de l'observation souhaitée (ici, l'utilisateur 1)
 
-# Prédiction pour ce client
-prediction = best_model.predict([X_final.iloc[selected_index]])[0]
-prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
+# Prédiction pour cet utilisateur
+prediction = best_model.predict([X_final.iloc[observation_idx]])
 
-# Récupération des SHAP values pour l'observation
-if isinstance(shap_values, list) and len(shap_values) == 2:
-    shap_values_client = shap_values[1][selected_index]
-    expected_value = explainer.expected_value[1]
-else:
-    shap_values_client = shap_values[selected_index]
-    expected_value = explainer.expected_value
+# Afficher la prédiction
+prediction_label = "❌ Résilie" if prediction[0] == 1 else "✅ Ne résilie pas"
+st.markdown(f"### Pour l'Observation {observation_idx + 1}, le modèle a prédit que le client : **{prediction_label}**")
 
-# Associer chaque feature à sa valeur SHAP et valeur réelle
-feature_contributions = list(zip(X_final.columns, shap_values_client, X_final.iloc[selected_index]))
-top_features = sorted(feature_contributions, key=lambda x: abs(x[1]), reverse=True)[:2]
-
-# Affichage
-st.markdown(f"### Pour l'observation {selected_index}, le modèle a prédit que le client : **{prediction_label}**")
-st.markdown("#### Impact des 2 variables les plus influentes :")
-
-for feature, shap_val, val in top_features:
-    direction = "augmente" if shap_val > 0 else "diminue"
+# Afficher les valeurs SHAP pour chaque feature (classe 1)
+st.markdown("#### Impact des variables :")
+for feature, shap_value in zip(X_final.columns, shap_values[1][observation_idx]):
+    direction = "augmente" if shap_value > 0 else "diminue"
     st.markdown(
-        f"- **{feature}** (valeur = {val}) : impact SHAP **{shap_val:+.4f}**, ce qui **{direction}** la probabilité de résiliation."
+        f"- **{feature}** : La valeur SHAP est **{shap_value:+.4f}**, ce qui indique que la variable **{feature}** {'augmente' if shap_value > 0 else 'diminue'} la probabilité de résiliation."
     )
 
-# Résumé global
-shap_sum = shap_values_client.sum()
-final_value = expected_value + shap_sum
+# Calculer la prédiction attendue (base value) et l'impact total
+expected_value = explainer.expected_value[1]
+impact_total = expected_value + shap_values[1][observation_idx].sum()
 
+# Résumé global
 st.markdown("#### Conclusion :")
-st.markdown(f"La combinaison de ces impacts (et des autres variables) donne une sortie modèle de **{final_value:.4f}**.")
+st.markdown(f"La combinaison de ces impacts (et des autres variables) donne une sortie modèle de **{impact_total:.4f}**.")
