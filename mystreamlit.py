@@ -29,20 +29,6 @@ for section in sections:
     anchor = section.lower().replace(".", "").replace(" ", "-")
     st.sidebar.markdown(f"- [{section}](#{anchor})")
 
-# Ajout des liens pour les ancres de chaque section
-sections = [
-    "Aperçu des données",
-    "Nettoyage des données",
-    "Visualisation des données",
-    "Entraînement du modèle",
-    "Importance des variables",
-    "Amélioration du modèle",
-    "Explication des prédictions"
-]
-
-# Affichage du menu de navigation
-for section in sections:
-    st.sidebar.markdown(f"[{section}](#{section.lower().replace(' ', '-')})")
 
 # Chargement des données
 df = pd.read_csv("churn_clients.csv")
