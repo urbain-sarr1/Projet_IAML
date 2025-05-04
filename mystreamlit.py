@@ -34,13 +34,15 @@ for section in sections:
 df = pd.read_csv("churn_clients.csv")
 
 # Tout afficher, section par section
-st.markdown("## 1. Aperçu des données", anchor="aperçu-des-données")
+st.markdown("<a id='aperçu-des-données'></a>", unsafe_allow_html=True)
+st.markdown("## 1. Aperçu des données")
 st.write("Nombre de clients :", df.shape[0])
 st.write("Colonnes :", list(df.columns))
 num_lines = st.slider("Choisissez le nombre de lignes à afficher", min_value=5, max_value=df.shape[0], step=5, value=10)
 st.dataframe(df.head(num_lines))
 
-st.markdown("## 2. Nettoyage des données", anchor="nettoyage-des-données")
+st.markdown("<a id='nettoyage-des-données'></a>", unsafe_allow_html=True)
+st.markdown("## 2. Nettoyage des données")
 df_clean = df.copy()
 
 for col in df_clean.select_dtypes(include='object').columns:
@@ -59,7 +61,8 @@ X = df_clean.drop("Resilie", axis=1)
 y = df_clean["Resilie"]
 X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
-st.markdown("## 3. Visualisation des données", anchor="visualisation-des-données")
+st.markdown("<a id='visualisation-des-données'></a>", unsafe_allow_html=True)
+st.markdown("## 3. Visualisation des données")
 col1, col2 = st.columns(2)
 with col1:
     st.write("Histogramme des âges")
@@ -78,7 +81,8 @@ fig, ax = plt.subplots()
 sns.boxplot(x="Resilie", y="Score_satisfaction", data=df.dropna(subset=["Score_satisfaction"]), ax=ax)
 st.pyplot(fig)
 
-st.markdown("## 4. Entraînement du modèle", anchor="entrainement-du-modèle")
+st.markdown("<a id='entrainement-du-modèle'></a>", unsafe_allow_html=True)
+st.markdown("## 4. Entraînement du modèle")
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
@@ -94,14 +98,16 @@ fig, ax = plt.subplots()
 sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues", ax=ax)
 st.pyplot(fig)
 
-st.markdown("## 5. Importance des variables", anchor="importance-des-variables")
+st.markdown("<a id='importance-des-variables'></a>", unsafe_allow_html=True)
+st.markdown("## 5. Importance des variables")
 importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
 fig, ax = plt.subplots(figsize=(8, 5))
 importances.plot(kind="bar", ax=ax)
 plt.title("Importance des variables")
 st.pyplot(fig)
 
-st.markdown("## 6. Amélioration du modèle", anchor="amelioration-du-modèle")
+st.markdown("<a id='amelioration-du-modèle'></a>", unsafe_allow_html=True)
+st.markdown("## 6. Amélioration du modèle")
 X_train_f, X_test_f, y_train_f, y_test_f = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
 best_model = DecisionTreeClassifier(max_depth=3, min_samples_leaf=10, random_state=42)
@@ -127,7 +133,8 @@ fig, ax = plt.subplots()
 sns.heatmap(confusion_matrix(y_test_f, y_pred_final), annot=True, fmt='d', cmap='BuPu', ax=ax)
 st.pyplot(fig)
 
-st.markdown("## 7. Explication des prédictions", anchor="explication-des-prédictions")
+st.markdown("<a id='explication-des-prédictions'></a>", unsafe_allow_html=True)
+st.markdown("## 7. Explication des prédictions")
 explainer = shap.TreeExplainer(best_model)
 shap_values = explainer.shap_values(X_scaled)
 
