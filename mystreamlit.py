@@ -137,50 +137,52 @@ final_importances.plot(kind="bar", ax=ax)
 plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
-import shap
-import pandas as pd
-import streamlit as st
 
-# Créer un DataFrame avec les noms des colonnes
-X_test_scaled_df = pd.DataFrame(X_test_scaled, columns=variables_utiles)
+# 7. Interprétation de la Prédiction avec SHAP
+st.subheader("7. Interprétation de la Prédiction avec SHAP")
 
-# Créer un explainer SHAP pour l'arbre de décision
-explainer = shap.TreeExplainer(arbre_simplifie)
-
-# Obtenir les valeurs SHAP
-shap_values = explainer.shap_values(X_test_scaled_df)
+# Créer un explainer SHAP pour le modèle
+explainer = shap.TreeExplainer(best_model)
+shap_values = explainer.shap_values(X_final)
 
 # Demander à l'utilisateur de choisir un indice d'observation
-observation_idx = st.number_input(
-    "Choisissez l'index de l'observation (utilisateur)", 
+selected_index = st.number_input(
+    "Choisissez l'index du client", 
     min_value=0, 
-    max_value=len(X_test_scaled_df) - 1, 
+    max_value=len(X_final) - 1, 
     step=1
 )
 
 # Prédiction pour l'observation sélectionnée
-prediction = arbre_simplifie.predict([X_test_scaled_df.iloc[observation_idx]])
+prediction = best_model.predict([X_final.iloc[selected_index]])[0]
+prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
+st.markdown(f"### Prédiction pour l'Observation {selected_index}: **{prediction_label}**")
 
-# Affichage de la prédiction et de l'impact des features pour cet utilisateur
-st.subheader(f"Prédiction pour l'Observation {observation_idx + 1}")
-prediction_label = "❌ Résilie" if prediction[0] == 1 else "✅ Ne résilie pas"
-st.markdown(f"**Prédiction** : {prediction_label} (1 signifie résiliation, 0 signifie non résiliation)")
+# Calcul des valeurs SHAP pour l'observation sélectionnée
+shap_values_client = shap_values[1][selected_index]  # pour classe 1 (résiliation)
+feature_values = X_final.iloc[selected_index]
 
-# Affichage des valeurs SHAP pour chaque feature (classe 1)
-st.markdown(f"#### Impact des variables sur la prédiction de l'Observation {observation_idx + 1} :")
-for feature, shap_value in zip(variables_utiles, shap_values[1][observation_idx]):
-    direction = "augmente" if shap_value > 0 else "diminue"
-    st.markdown(f"- **{feature}** : La valeur SHAP pour '{feature}' est {shap_value:+.4f}, ce qui indique que {feature} {direction} la probabilité de résiliation.")
+# Tri des variables par importance
+contributions = sorted(
+    zip(X_final.columns, shap_values_client, feature_values),
+    key=lambda x: abs(x[1]),
+    reverse=True
+)
 
-# Calculer la prédiction attendue (base value) et l'impact total
-expected_value = explainer.expected_value[1]
-impact_total = expected_value + shap_values[1][observation_idx].sum()
+# Explication des variables influentes
+st.markdown(f"#### Impact des variables sur la prédiction de l'Observation {selected_index} :")
 
-# Affichage de la valeur attendue et de l'impact total
-st.markdown(f"\n### Conclusion de l'impact des variables :")
-st.markdown(f"- **Valeur attendue (base value)** : {expected_value:.4f}")
-st.markdown(f"- **Impact total de l'utilisateur** : {impact_total:.4f}")
+# Affichage des 3 principales variables influentes
+for feature, shap_val, feat_val in contributions[:3]:
+    direction = "augmente" if shap_val > 0 else "diminue"
+    st.markdown(f"- **{feature}** : La valeur SHAP pour '{feature}' est {shap_val:+.4f}, ce qui indique que {feature} {direction} la probabilité de résiliation.")
 
-# Pour plus de clarté, nous pouvons aussi afficher un graphique SHAP pour visualiser l'impact
-shap.initjs()
-shap.force_plot(expected_value, shap_values[1][observation_idx], X_test_scaled_df.iloc[observation_idx], matplotlib=True)
+# Conclusion de l'impact des variables
+st.markdown(f"### Combinaison des impacts :")
+shap_sum = shap_values_client.sum()
+if shap_sum > 0:
+    direction = "augmente"
+    st.markdown(f"L'impact total des variables est de **{shap_sum:+.4f}**, ce qui augmente la probabilité de résiliation.")
+else:
+    direction = "diminue"
+    st.markdown(f"L'impact total des variables est de **{shap_sum:+.4f}**, ce qui diminue la probabilité de résiliation.")
