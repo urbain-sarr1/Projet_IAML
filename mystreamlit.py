@@ -10,7 +10,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 import shap
 
 # Titre
-st.title("🔍 Dashboard Analyse de la résiliation client")
+st.title("🔍  Analyse de la résiliation client")
 
 # 1. Chargement des données
 df = pd.read_csv("churn_clients.csv")
