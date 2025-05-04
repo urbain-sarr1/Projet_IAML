@@ -11,21 +11,18 @@ import shap
 
 st.title("🔍 Dashboard Analyse de la résiliation client")
 
-# Ajout du menu de navigation
-menu = ["Aperçu", "Nettoyage", "Visualisation"]
-choice = st.sidebar.selectbox("Sélectionnez une section", menu)
-
-# 1. Chargement des données
+# Chargement des données
 df = pd.read_csv("churn_clients.csv")
 
-if choice == "Aperçu":
+# 1. Aperçu des données
+if st.sidebar.button("1. Aperçu des données"):
     st.subheader("1. Aperçu des données")
     st.write("Nombre de clients :", df.shape[0])
     st.write("Colonnes :", list(df.columns))
     st.dataframe(df.head())
 
 # 2. Nettoyage des données
-if choice == "Nettoyage":
+if st.sidebar.button("2. Nettoyage des données"):
     st.subheader("2. Nettoyage des données")
     df_clean = df.copy()
 
@@ -46,7 +43,7 @@ if choice == "Nettoyage":
     X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
 # 3. Visualisations
-if choice == "Visualisation":
+if st.sidebar.button("3. Visualisation des données"):
     st.subheader("3. Visualisation des données")
     col1, col2 = st.columns(2)
     with col1:
@@ -66,4 +63,4 @@ if choice == "Visualisation":
     sns.boxplot(x="Resilie", y="Score_satisfaction", data=df.dropna(subset=["Score_satisfaction"]), ax=ax)
     st.pyplot(fig)
 
-# Le reste du code pour l'entraînement et les autres sections n'est pas visible en fonction du choix du menu
+# Le reste du code pour l'entraînement et les autres sections n'est pas visible en fonction des boutons
