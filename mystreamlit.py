@@ -36,8 +36,8 @@ missing_values = df_clean.isnull().sum().sum()
 duplicates = df_clean.duplicated().sum()
 
 # Affichage des résultats
-st.write(f"Nombre total de valeurs manquantes : {missing_values}")
-st.write(f"Nombre de doublons : {duplicates}")
+st.write("Nombre total de valeurs manquantes : ", missing_values)
+st.write("Nombre de doublons : ", duplicates)
 
 # Normalisation
 scaler = StandardScaler()
