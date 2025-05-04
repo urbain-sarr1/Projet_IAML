@@ -138,6 +138,9 @@ plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
 
+import shap
+import streamlit as st
+
 # 7. Interprétation de la Prédiction avec SHAP
 st.subheader("7. Interprétation de la Prédiction avec SHAP")
 
@@ -145,7 +148,7 @@ st.subheader("7. Interprétation de la Prédiction avec SHAP")
 explainer = shap.TreeExplainer(best_model)
 shap_values = explainer.shap_values(X_final)
 
-# Sélection de l'observation
+# Sélection du client à analyser
 selected_index = st.number_input(
     "Choisissez un index client à analyser", 
     min_value=0, 
@@ -153,25 +156,36 @@ selected_index = st.number_input(
     step=1
 )
 
-# ✅ Afficher la ligne brute du dataset original
+# ✅ Afficher les données brutes du client dans le DataFrame d’origine
 st.markdown(f"#### Données brutes du client {selected_index}")
 st.dataframe(df.iloc[[selected_index]])
 
-# Prédiction du modèle
+# Prédiction pour le client
 prediction = best_model.predict([X_final.iloc[selected_index]])[0]
 prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
 st.markdown(f"### Prédiction : **{prediction_label}**")
 
-# Récupérer les valeurs SHAP de l'observation
+# Extraction des valeurs SHAP pour l’observation
 shap_values_client = shap_values[1][selected_index]
+feature_values = X_final.iloc[selected_index]
 
-# Analyse des deux variables demandées
-variables_cibles = ["Anciennete", "Frequence_utilisation"]
+# Variables cibles à analyser
+variables_cibles = ["Anciennete", "Frequence_utilisation", "Score_satisfaction"]
 
-st.markdown("### Analyse des variables influentes :")
+# Explication pour chaque variable clé
+st.markdown("### Analyse des variables principales :")
 for var in variables_cibles:
     if var in X_final.columns:
         shap_val = shap_values_client[X_final.columns.get_loc(var)]
         direction = "augmente" if shap_val > 0 else "diminue"
-        st.markdown(f"- **{var.replace('_', ' ')}** : La valeur SHAP pour \"{var}\" est {shap_val:+.4f}, ce qui indique que {var.replace('_', ' ').lower()} {direction} la probabilité de résiliation.")
+        st.markdown(f"- **{var.replace('_', ' ')}** : La valeur SHAP pour '{var}' est {shap_val:+.4f}, ce qui indique que {var.replace('_', ' ').lower()} {direction} la probabilité de résiliation.")
 
+# Résumé global
+expected_value = explainer.expected_value[1]
+shap_sum = shap_values_client.sum()
+final_value = expected_value + shap_sum
+
+st.markdown("### Résumé de l'impact global :")
+st.markdown(f"- **Valeur attendue (base value)** : {expected_value:.4f}")
+st.markdown(f"- **Somme des impacts SHAP** : {shap_sum:+.4f}")
+st.markdown(f"- **Valeur finale de sortie du modèle** : {final_value:.4f}")
