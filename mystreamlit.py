@@ -69,65 +69,75 @@ elif page == "Visualisations":
 # 5. Entraînement du Modèle
 elif page == "Entraînement du modèle":
     st.title("⚙️ Entraînement du Modèle")
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
+    
+    # Vérification que X_scaled est défini correctement
+    if 'X_scaled' not in locals():
+        st.error("Les données n'ont pas été préalablement traitées et normalisées.")
+    else:
+        # Séparation des données
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
-    model = DecisionTreeClassifier()
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
+        model = DecisionTreeClassifier()
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
 
-    st.write("Classification Report :")
-    st.text(classification_report(y_test, y_pred))
+        st.write("Classification Report :")
+        st.text(classification_report(y_test, y_pred))
 
-    st.write("Matrice de confusion")
-    fig, ax = plt.subplots()
-    sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues", ax=ax)
-    st.pyplot(fig)
+        st.write("Matrice de confusion")
+        fig, ax = plt.subplots()
+        sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues", ax=ax)
+        st.pyplot(fig)
 
-    # Validation croisée
-    scoring = {'accuracy': 'accuracy', 'recall': 'recall', 'f1': 'f1', 'roc_auc': 'roc_auc'}
-    cv_results = cross_validate(model, X_scaled, y, cv=cv, scoring=scoring)
+        # Validation croisée
+        scoring = {'accuracy': 'accuracy', 'recall': 'recall', 'f1': 'f1', 'roc_auc': 'roc_auc'}
+        cv_results = cross_validate(model, X_scaled, y, cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42), scoring=scoring)
 
-    score_df = pd.DataFrame({
-        'Accuracy': [cv_results['test_accuracy'].mean()],
-        'Recall': [cv_results['test_recall'].mean()],
-        'F1 Score': [cv_results['test_f1'].mean()],
-        'AUC': [cv_results['test_roc_auc'].mean()]
-    })
-    st.dataframe(score_df.T.rename(columns={0: "Score moyen"}).style.format("{:.4f}"))
+        score_df = pd.DataFrame({
+            'Accuracy': [cv_results['test_accuracy'].mean()],
+            'Recall': [cv_results['test_recall'].mean()],
+            'F1 Score': [cv_results['test_f1'].mean()],
+            'AUC': [cv_results['test_roc_auc'].mean()]
+        })
+        st.dataframe(score_df.T.rename(columns={0: "Score moyen"}).style.format("{:.4f}"))
 
 # 6. Explication des Prédictions avec SHAP
 elif page == "Explication des prédictions":
     st.title("🔍 Explication des Prédictions")
-    X_final_df = pd.DataFrame(X_scaled, columns=X.columns)
 
-    # Explainer SHAP
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(X_final_df)
+    # Vérification que X_scaled est défini correctement
+    if 'X_scaled' not in locals():
+        st.error("Les données n'ont pas été préalablement traitées et normalisées.")
+    else:
+        X_final_df = pd.DataFrame(X_scaled, columns=X.columns)
 
-    observation_idx = st.number_input(
-        "Choisissez un index client à analyser", 
-        min_value=0, 
-        max_value=len(X_final_df) - 1, 
-        step=1
-    )
+        # Explainer SHAP
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_final_df)
 
-    prediction = model.predict([X_final.iloc[observation_idx]])
-
-    prediction_label = "❌ Résilie" if prediction[0] == 1 else "✅ Ne résilie pas"
-    st.markdown(f"### Pour l'Observation {observation_idx + 1}, le modèle a prédit que le client : **{prediction_label}**")
-
-    # Affichage des valeurs SHAP
-    st.markdown("#### Impact des variables :")
-    for feature, shap_value in zip(X_final.columns, shap_values[1][observation_idx]):
-        direction = "augmente" if shap_value > 0 else "diminue"
-        st.markdown(
-            f"- **{feature}** : La valeur SHAP est **{shap_value:+.4f}**, ce qui indique que la variable **{feature}** {'augmente' if shap_value > 0 else 'diminue'} la probabilité de résiliation."
+        observation_idx = st.number_input(
+            "Choisissez un index client à analyser", 
+            min_value=0, 
+            max_value=len(X_final_df) - 1, 
+            step=1
         )
 
-    # Graphique SHAP interactif
-    shap.initjs()
-    st.pydeck_chart(shap.force_plot(explainer.expected_value[1], shap_values[1][observation_idx], X_final.iloc[observation_idx]))
+        prediction = model.predict([X_final.iloc[observation_idx]])
+
+        prediction_label = "❌ Résilie" if prediction[0] == 1 else "✅ Ne résilie pas"
+        st.markdown(f"### Pour l'Observation {observation_idx + 1}, le modèle a prédit que le client : **{prediction_label}**")
+
+        # Affichage des valeurs SHAP
+        st.markdown("#### Impact des variables :")
+        for feature, shap_value in zip(X_final.columns, shap_values[1][observation_idx]):
+            direction = "augmente" if shap_value > 0 else "diminue"
+            st.markdown(
+                f"- **{feature}** : La valeur SHAP est **{shap_value:+.4f}**, ce qui indique que la variable **{feature}** {'augmente' if shap_value > 0 else 'diminue'} la probabilité de résiliation."
+            )
+
+        # Graphique SHAP interactif
+        shap.initjs()
+        st.pydeck_chart(shap.force_plot(explainer.expected_value[1], shap_values[1][observation_idx], X_final.iloc[observation_idx]))
 
 # 7. Personnalisation de l'interface
 st.markdown("""
@@ -146,3 +156,4 @@ st.sidebar.markdown("**🔧 Paramètres du modèle :**")
 # Exemples d'ajout de contrôle des paramètres du modèle
 max_depth = st.sidebar.slider("Profondeur maximale de l'arbre", 1, 20, 3)
 min_samples_leaf = st.sidebar.slider("Nombre minimum d'échantillons par feuille", 1, 20, 10)
+
