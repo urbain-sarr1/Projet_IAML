@@ -12,6 +12,31 @@ import shap
 # Titre du tableau de bord
 st.title("🔍 Dashboard Analyse de la résiliation client")
 
+# Style CSS pour personnaliser le menu
+st.markdown("""
+    <style>
+    /* Style du menu dans la barre latérale */
+    .sidebar .sidebar-content {
+        padding-top: 10px;
+    }
+    .sidebar .sidebar-content a {
+        text-decoration: none;
+        font-size: 16px;
+        color: #007bff;
+        font-weight: 500;
+        padding: 8px 0;
+        display: block;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+    .sidebar .sidebar-content a:hover {
+        background-color: #f1f1f1;
+        color: #0056b3;
+        padding-left: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Menu de navigation (barre latérale)
 st.sidebar.title("Naviguer dans le tableau de bord")
 
