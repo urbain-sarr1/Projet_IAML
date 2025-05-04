@@ -137,7 +137,6 @@ final_importances.plot(kind="bar", ax=ax)
 plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
-
 # 7. Interprétation de la Prédiction avec SHAP
 st.subheader("7. Interprétation de la Prédiction avec SHAP")
 
@@ -145,44 +144,51 @@ st.subheader("7. Interprétation de la Prédiction avec SHAP")
 explainer = shap.TreeExplainer(best_model)
 shap_values = explainer.shap_values(X_final)
 
-# Demander à l'utilisateur de choisir un indice d'observation
+# Sélection de l'utilisateur (observation)
 selected_index = st.number_input(
-    "Choisissez l'index du client", 
+    "Choisissez l'index du client à analyser", 
     min_value=0, 
     max_value=len(X_final) - 1, 
     step=1
 )
 
+# Affichage de la ligne sélectionnée dans le dataset
+st.markdown(f"#### Données de l'Observation {selected_index}")
+st.dataframe(X_final.iloc[[selected_index]])
+
 # Prédiction pour l'observation sélectionnée
 prediction = best_model.predict([X_final.iloc[selected_index]])[0]
 prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
-st.markdown(f"### Prédiction pour l'Observation {selected_index}: **{prediction_label}**")
+st.markdown(f"### Prédiction pour l'Observation {selected_index} : **{prediction_label}**")
 
-# Calcul des valeurs SHAP pour l'observation sélectionnée
-shap_values_client = shap_values[1][selected_index]  # pour classe 1 (résiliation)
+# Calcul des valeurs SHAP pour cette observation
+shap_values_client = shap_values[1][selected_index]  # pour la classe 1
 feature_values = X_final.iloc[selected_index]
 
-# Tri des variables par importance
+# Tri des contributions par importance
 contributions = sorted(
     zip(X_final.columns, shap_values_client, feature_values),
     key=lambda x: abs(x[1]),
     reverse=True
 )
 
-# Explication des variables influentes
-st.markdown(f"#### Impact des variables sur la prédiction de l'Observation {selected_index} :")
-
-# Affichage des 3 principales variables influentes
+# Affichage des variables les plus influentes
+st.markdown(f"#### Impact des variables sur la prédiction :")
 for feature, shap_val, feat_val in contributions[:3]:
     direction = "augmente" if shap_val > 0 else "diminue"
-    st.markdown(f"- **{feature}** : La valeur SHAP pour '{feature}' est {shap_val:+.4f}, ce qui indique que {feature} {direction} la probabilité de résiliation.")
+    st.markdown(f"- **{feature}** : SHAP = {shap_val:+.4f} → {direction} la probabilité de résiliation.")
 
-# Conclusion de l'impact des variables
-st.markdown(f"### Combinaison des impacts :")
+# Résumé de l'impact total
 shap_sum = shap_values_client.sum()
-if shap_sum > 0:
-    direction = "augmente"
-    st.markdown(f"L'impact total des variables est de **{shap_sum:+.4f}**, ce qui augmente la probabilité de résiliation.")
-else:
-    direction = "diminue"
-    st.markdown(f"L'impact total des variables est de **{shap_sum:+.4f}**, ce qui diminue la probabilité de résiliation.")
+expected_value = explainer.expected_value[1]
+final_value = expected_value + shap_sum
+
+st.markdown(f"### Résumé de l'impact global :")
+st.markdown(f"- **Valeur attendue (base value)** : {expected_value:.4f}")
+st.markdown(f"- **Somme des impacts SHAP** : {shap_sum:+.4f}")
+st.markdown(f"- **Valeur finale de sortie du modèle** : {final_value:.4f}")
+
+# Optionnel : Visualisation graphique SHAP
+with st.expander("📊 Afficher le graphique SHAP Force Plot"):
+    shap.initjs()
+    st.pyplot(shap.force_plot(expected_value, shap_values_client, feature_values, matplotlib=True))
