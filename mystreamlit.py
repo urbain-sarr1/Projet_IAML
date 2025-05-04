@@ -154,3 +154,6 @@ selected_index = st.number_input("Choisir un index client", min_value=0, max_val
 pred = best_model.predict([X_final.iloc[selected_index]])
 st.write(f"Prédiction pour le client {selected_index} : {'Résilie' if pred[0]==1 else 'Ne résilie pas'}")
 
+# Affichage de l'explication SHAP pour un seul client sélectionné
+fig = shap.plots.waterfall(shap_values[selected_index], show=False)
+st.pyplot(fig)
