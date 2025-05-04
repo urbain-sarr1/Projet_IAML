@@ -161,26 +161,31 @@ st.dataframe(df.iloc[[selected_index]])
 prediction = best_model.predict([X_final.iloc[selected_index]])[0]
 prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
 
-# Gérer les shap_values selon leur forme (classification ou régression)
+# Récupération des valeurs SHAP
 if isinstance(shap_values, list):
-    shap_values_client = shap_values[prediction][selected_index]  # Si classification binaire
-    expected_value = explainer.expected_value[prediction]
+    shap_values_client = shap_values[1][selected_index]  # classe "résilie"
+    expected_value = explainer.expected_value[1]
 else:
-    shap_values_client = shap_values[selected_index]  # Cas régression ou simplifié
+    shap_values_client = shap_values[selected_index]
     expected_value = explainer.expected_value
 
-# Extraire les SHAP values pour les deux variables demandées
-shap_anciennete = shap_values_client[X_final.columns.get_loc("Anciennete")]
-shap_frequence = shap_values_client[X_final.columns.get_loc("Frequence_utilisation")]
+# Associer chaque feature à sa valeur SHAP
+feature_contributions = list(zip(X_final.columns, shap_values_client, X_final.iloc[selected_index]))
+# Trier par importance absolue
+top_features = sorted(feature_contributions, key=lambda x: abs(x[1]), reverse=True)[:2]
 
-# Affichage interprétatif
+# Affichage des résultats
 st.markdown(f"### Pour l'observation {selected_index}, le modèle a prédit que le client : **{prediction_label}**")
-st.markdown("#### Impact des variables :")
-st.markdown(f"- **Ancienneté** : La valeur SHAP est **{shap_anciennete:+.4f}**, ce qui indique que l'ancienneté du client **diminue** la probabilité de résiliation." if shap_anciennete < 0 else f"- **Ancienneté** : La valeur SHAP est **{shap_anciennete:+.4f}**, ce qui **augmente** la probabilité de résiliation.")
-st.markdown(f"- **Fréquence d'utilisation** : La valeur SHAP est **{shap_frequence:+.4f}**, indiquant que plus la fréquence d'utilisation est élevée, plus le client est **susceptible de résilier**." if shap_frequence > 0 else f"- **Fréquence d'utilisation** : La valeur SHAP est **{shap_frequence:+.4f}**, indiquant que cela **diminue** la probabilité de résiliation.")
+st.markdown("#### Impact des 2 variables les plus influentes :")
+
+for feature, shap_val, val in top_features:
+    direction = "augmente" if shap_val > 0 else "diminue"
+    st.markdown(
+        f"- **{feature}** (valeur = {val}) : impact SHAP **{shap_val:+.4f}**, ce qui **{direction}** la probabilité de résiliation."
+    )
 
 # Résumé global
-shap_sum = shap_values_client.sum()
+shap_sum = sum([val for _, val, _ in feature_contributions])
 final_value = expected_value + shap_sum
 
 st.markdown("#### Conclusion :")
