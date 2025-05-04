@@ -1,91 +1,157 @@
-import streamlit as st
 import pandas as pd
-import plotly.express as px
-import shap
+import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+import seaborn as sns
+import shap
+import streamlit as st
+from sklearn.inspection import permutation_importance
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-import joblib
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
 
-# ----------------- Chargement et Prétraitement des données -----------------
+# Charger les données
 @st.cache_data
 def load_and_preprocess_data():
-    # Remplace le chemin par le fichier CSV contenant tes données
-    data = pd.read_csv("churn_clients.csv")  # Assure-toi que le fichier est dans le bon répertoire
-    return data
+    # Charger le fichier CSV ou Parquet
+    df = pd.read_csv('churn_clients.csv')
+    
+    # Encodage des variables catégorielles
+    label_encoder = LabelEncoder()
+    df['Sexe'] = label_encoder.fit_transform(df['Sexe'])
+    df['Support_contacte'] = label_encoder.fit_transform(df['Support_contacte'])
 
-data = load_and_preprocess_data()
+    # Normalisation des colonnes numériques
+    scaler = StandardScaler()
+    df[['Age', 'Revenu', 'Anciennete', 'Frequence_utilisation', 'Score_satisfaction']] = scaler.fit_transform(
+        df[['Age', 'Revenu', 'Anciennete', 'Frequence_utilisation', 'Score_satisfaction']])
 
-# ----------------- Prétraitement pour le modèle -----------------
-st.sidebar.title("Filtres")
-anciennete = st.sidebar.slider("Ancienneté (mois)", int(data['Anciennete'].min()), int(data['Anciennete'].max()))
-frequence = st.sidebar.slider("Fréquence d'utilisation", float(data['Frequence_utilisation'].min()), float(data['Frequence_utilisation'].max()))
-score = st.sidebar.slider("Score de satisfaction", float(data['Score_satisfaction'].min()), float(data['Score_satisfaction'].max()))
+    return df
 
-filtered_data = data[
-    (data['Anciennete'] >= anciennete) &
-    (data['Frequence_utilisation'] >= frequence) &
-    (data['Score_satisfaction'] >= score)
-]
+df = load_and_preprocess_data()
 
-# ----------------- Entraînement du modèle KMeans -----------------
-X = filtered_data[['Anciennete', 'Frequence_utilisation', 'Score_satisfaction']]
+# Séparer les données
+X = df.drop('Resilie', axis=1)
+y = df['Resilie']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+
+# Sélectionner les modèles
+models = {
+    'Régression Logistique': LogisticRegression(penalty='l2', C=0.1, solver='liblinear', random_state=42),
+    'Arbre de Décision': DecisionTreeClassifier(max_depth=3, min_samples_leaf=10, random_state=42),
+    'KNN': KNeighborsClassifier(n_neighbors=10, weights='distance')
+}
+
+# Afficher les graphiques de distribution
+st.title("Analyse des clients et prédiction de la résiliation")
+st.subheader("Distribution de l'âge")
+fig1, ax1 = plt.subplots(figsize=(10, 6))
+sns.histplot(df['Age'], kde=True, ax=ax1)
+st.pyplot(fig1)
+
+st.subheader("Distribution du revenu")
+fig2, ax2 = plt.subplots(figsize=(10, 6))
+sns.histplot(df['Revenu'], kde=True, ax=ax2)
+st.pyplot(fig2)
+
+st.subheader("Matrice de corrélation")
+fig3, ax3 = plt.subplots(figsize=(10, 6))
+sns.heatmap(df.corr(), annot=True, cmap='coolwarm', ax=ax3)
+st.pyplot(fig3)
+
+# Sélection du modèle
+model_name = st.selectbox("Sélectionner le modèle", options=list(models.keys()))
+model = models[model_name]
+
+# Pipeline avec SMOTE
+pipeline = ImbPipeline([('scaler', StandardScaler()), ('smote', SMOTE(random_state=42)), ('model', model)])
+
+# Validation croisée
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+# Entraînement et évaluation sur les différentes métriques
+st.subheader(f"Évaluation du modèle {model_name}")
+metrics = ['Accuracy', 'Recall', 'F1 Score', 'AUC']
+
+for metric in metrics:
+    st.write(f"{metric} (cross-validation):")
+    scores = cross_val_score(pipeline, X, y, cv=cv, scoring=metric.lower())
+    st.write(f"  - Moyenne : {scores.mean():.4f}")
+
+# Entraînement final
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
-kmeans = KMeans(n_clusters=3, random_state=42)
-filtered_data['Cluster'] = kmeans.fit_predict(X_scaled)
+sm = SMOTE(random_state=42)
+X_train_res, y_train_res = sm.fit_resample(X_train_scaled, y_train)
 
-# ----------------- Entraînement du modèle pour SHAP -----------------
-# Pour l'explication SHAP, utilisons un arbre de décision
-y = [1 if x < 3 else 0 for x in filtered_data['Score_satisfaction']]  # Simplification : résiliation si Score < 3
+# Entraîner le modèle
+model.fit(X_train_res, y_train_res)
+y_pred = model.predict(X_test_scaled)
 
-clf = DecisionTreeClassifier(random_state=42)
-clf.fit(X_scaled, y)
+# Évaluation finale sur le test set
+st.subheader("Évaluation sur le test set")
+accuracy = accuracy_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+auc = roc_auc_score(y_test, model.predict_proba(X_test_scaled)[:, 1])
+conf_matrix = confusion_matrix(y_test, y_pred)
 
-# Calcul de l'explainer SHAP
-explainer = shap.TreeExplainer(clf)
-shap_values = explainer.shap_values(X_scaled)
+st.write(f"Précision : {accuracy:.4f}")
+st.write(f"Rappel : {recall:.4f}")
+st.write(f"F1 Score : {f1:.4f}")
+st.write(f"AUC : {auc:.4f}")
+st.write("Matrice de confusion :")
+st.write(conf_matrix)
 
-# ----------------- Dashboard -----------------
-st.title("📊 Dashboard Clients - Résiliations et Clustering")
+# Affichage de la courbe ROC
+fpr, tpr, _ = roc_curve(y_test, model.predict_proba(X_test_scaled)[:, 1])
+fig4, ax4 = plt.subplots(figsize=(6, 5))
+ax4.plot(fpr, tpr, label=f'{model_name} (AUC = {auc:.2f})')
+ax4.plot([0, 1], [0, 1], 'k--')
+ax4.set_xlabel('Taux de faux positifs')
+ax4.set_ylabel('Taux de vrais positifs')
+ax4.set_title('Courbe ROC')
+ax4.legend(loc='best')
+st.pyplot(fig4)
 
-st.markdown("Analyse interactive des comportements clients pour identifier les motifs de résiliation.")
+# Affichage de l'importance des variables
+st.subheader(f"Importance des variables ({model_name})")
 
-st.subheader("📌 Données filtrées")
-st.write(f"Nombre de clients : {filtered_data.shape[0]}")
-st.dataframe(filtered_data.head())
+if model_name == 'Régression Logistique':
+    importance = model.coef_[0]
+elif model_name == 'Arbre de Décision':
+    importance = model.feature_importances_
+elif model_name == 'KNN':
+    result = permutation_importance(model, X_test_scaled, y_test, n_repeats=30, random_state=42, scoring='accuracy')
+    importance = result.importances_mean
 
-# ----------------- Clustering -----------------
-st.subheader("🧠 Clustering des clients (KMeans)")
+importance_df = pd.DataFrame({
+    'Feature': X.columns,
+    'Importance': importance
+}).sort_values(by='Importance', ascending=False)
 
-fig_cluster = px.scatter_3d(filtered_data, 
-                            x='Anciennete', y='Frequence_utilisation', z='Score_satisfaction',
-                            color='Cluster', title="Clustering 3D des clients")
-st.plotly_chart(fig_cluster)
+st.write(importance_df)
 
-# ----------------- SHAP -----------------
-st.subheader("📈 Explication des Résiliations avec SHAP")
+# Affichage SHAP pour l'Arbre de Décision
+if model_name == 'Arbre de Décision':
+    st.subheader("Explication SHAP pour l'Arbre de Décision")
+    
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_test_scaled)
+    
+    observation_idx = st.slider("Sélectionner un utilisateur pour l'explication SHAP", 0, X_test_scaled.shape[0] - 1)
+    
+    # Afficher la prédiction
+    prediction = model.predict([X_test_scaled[observation_idx]])
+    st.write(f"Prédiction pour l'utilisateur {observation_idx + 1}: {prediction[0]}")
+    
+    # Afficher les valeurs SHAP
+    shap.initjs()
+    st_shap(shap.force_plot(explainer.expected_value[1], shap_values[1][observation_idx], X_test.iloc[observation_idx]))
 
-client_id = st.selectbox("Choisir un client à expliquer :", filtered_data.index)
-client_data = filtered_data.loc[[client_id]][['Anciennete', 'Frequence_utilisation', 'Score_satisfaction']]
-
-shap_value_client = shap_values[1][client_id]  # 1 pour la classe 'résilié' (si Score < 3)
-
-st.markdown("### Contribution des variables")
-fig_shap = shap.plots._waterfall.waterfall_legacy(explainer.expected_value[1], shap_value_client, client_data.iloc[0], show=False)
-st.pyplot(fig_shap)
-
-# ----------------- Résumé -----------------
-st.subheader("📌 Résumé du cluster sélectionné")
-selected_cluster = st.selectbox("Choisir un cluster :", sorted(filtered_data['Cluster'].unique()))
-cluster_data = filtered_data[filtered_data['Cluster'] == selected_cluster]
-
-st.metric("Taille du cluster", len(cluster_data))
-st.metric("Satisfaction moyenne", round(cluster_data['Score_satisfaction'].mean(), 2))
-st.metric("Ancienneté moyenne", round(cluster_data['Anciennete'].mean(), 2))
-
-fig_hist = px.histogram(cluster_data, x='Score_satisfaction', nbins=20, title="Distribution de satisfaction dans le cluster")
-st.plotly_chart(fig_hist)
