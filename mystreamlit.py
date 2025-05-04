@@ -138,9 +138,8 @@ plt.title("Importance des variables (modèle optimisé)")
 st.pyplot(fig)
 
 
-import shap
-import pandas as pd
-
+# 7. Explication des prédictions
+st.subheader("7. Explication des prédictions")
 # Créer un DataFrame avec les données mises à l'échelle et les variables utiles
 X_final_df = pd.DataFrame(X_final, columns=X_final.columns)
 
@@ -150,8 +149,13 @@ explainer = shap.TreeExplainer(best_model)
 # Obtenir les valeurs SHAP
 shap_values = explainer.shap_values(X_final_df)
 
-# Sélectionner un utilisateur spécifique (par exemple, l'Observation 1)
-observation_idx = 3  # Choisir l'indice de l'observation souhaitée (ici, l'utilisateur 1)
+# Sélectionner un utilisateur spécifique via Streamlit
+observation_idx = st.number_input(
+    "Choisissez un index client à analyser", 
+    min_value=0, 
+    max_value=len(X_final_df) - 1, 
+    step=1
+)
 
 # Prédiction pour cet utilisateur
 prediction = best_model.predict([X_final.iloc[observation_idx]])
