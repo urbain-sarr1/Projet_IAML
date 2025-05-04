@@ -151,7 +151,13 @@ prediction_label = "❌ Résilie" if prediction == 1 else "✅ Ne résilie pas"
 st.markdown(f"### Prédiction pour l'Observation {selected_index}: **{prediction_label}**")
 
 # Calcul des valeurs SHAP pour l'observation sélectionnée
-shap_values_client = shap_values[1][selected_index]  # pour classe 1 (résiliation)
+# Vérification si le modèle a 2 classes (résiliation ou non résiliation)
+if isinstance(shap_values, list):
+    shap_values_client = shap_values[1][selected_index]  # pour classe 1 (résiliation)
+else:
+    shap_values_client = shap_values[selected_index]  # Si seul un score est retourné
+
+# Récupérer les valeurs des features pour l'observation sélectionnée
 feature_values = X_final.iloc[selected_index]
 
 # Tri des variables par importance
